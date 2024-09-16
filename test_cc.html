@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ABCJS Cursor Example</title>
+    <link rel="stylesheet" href="abcjs-audio.css">
+
+    <script src="abcjs-basic.js"></script>
+</head>
+<body>
+    <div id="abc"></div>
+    <div id="audio"></div>
+    <button id="play-button">Play</button>
+    <script>
+        // Initialize ABCJS rendering
+        var abcString = `
+        X:1
+        T:Sample Tune
+        M:4/4
+        K:C
+        C D E F | G A B c |
+        `;
+
+        var visualObj;
+        var midiBuffer;
+        var synthControl;
+        var audioContext;
+
+        // Function to render and prepare playback
+        function renderAndPrepare(abcNotation) {
+            // Render the notation
+            visualObj = ABCJS.renderAbc("abc", abcNotation, {
+                add_classes: true,
+                staffwidth: 800,
+                responsive: 'resize',
+            })[0];
+
+            // Initialize the Audio Context
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+            // Initialize the Synthesizer
+            midiBuffer = new ABCJS.synth.CreateSynth();
+
+            midiBuffer.init({
+                audioContext: audioContext,
+                visualObj: visualObj,
+                options: {},
+            }).then(function () {
+                return midiBuffer.prime();
+            }).then(function () {
+                // Initialize the Synth Controller
+                synthControl = new ABCJS.synth.SynthController();
+                synthControl.load("#audio", null, {
+                    displayLoop: true,
+                    displayRestart: true,
+                    displayPlay: true,
+                    displayProgress: true,
+                    displayWarp: true,
+                });
+
+                // Initialize the Cursor Control
+                var cursorControl = new ABCJS.CursorControl({
+                    svg: document.querySelector("svg"),
+                    bpm: 120
+                });
+
+                synthControl.setCursorControl(cursorControl);
+
+                // Start playback
+                return synthControl.setTune(visualObj, true, {
+                    audioContext: audioContext,
+                    millisecondsPerMeasure: visualObj.millisecondsPerMeasure(),
+                    midiBuffer: midiBuffer,
+                }).then(function () {
+                    synthControl.play();
+                });
+            }).catch(function (error) {
+                console.warn("Audio problem:", error);
+            });
+        }
+
+        // Prepare and render when page loads
+        renderAndPrepare(abcString);
+
+        // Play button event
+        document.getElementById('play-button').addEventListener('click', function() {
+            renderAndPrepare(abcString);
+        });
+    </script>
+</body>
+</html>
